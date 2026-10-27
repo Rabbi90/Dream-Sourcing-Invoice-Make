@@ -83,3 +83,34 @@ select,.product-picker{height:38px;border-color:#cfd8e4;border-radius:9px;color:
 .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:34px;color:#173f7a}.auth-brand>div:nth-child(2){flex:1}.auth-brand b,.auth-brand span{display:block}.auth-brand b{font-size:17px}.auth-brand span{font-size:12px;color:#647087}
 .auth-card h1{font-size:28px;margin:0 0 10px}.auth-card p{font-size:14px;color:#647087;margin:0 0 24px;line-height:1.7}.auth-card form{display:flex;flex-direction:column;gap:18px}.auth-card input{height:45px;border:1px solid #cfd8e4;background:#f9fbfd;border-radius:9px;padding:10px 12px;width:100%;font-weight:400}.auth-submit{height:46px;border:0;border-radius:9px;background:#173f7a;color:#fff;font-weight:700;margin-top:5px;cursor:pointer}.auth-submit:disabled{opacity:.6;cursor:wait}.auth-links{display:flex;justify-content:space-between;gap:12px;margin-top:23px;font-size:14px}.auth-links a,.account-link{color:#173f7a;text-decoration:underline;text-underline-offset:3px}.auth-error,.auth-success{font-size:14px;padding:12px 14px;border-radius:9px;margin-bottom:18px}.auth-error{background:#fff0f0;color:#982634;border:1px solid #f0c3c8}.auth-success{background:#eefaef;color:#286439;border:1px solid #c4e5cc}.legacy-banner{max-width:1512px;margin:18px auto 0;padding:14px 20px;background:#fff8e6;border:1px solid #e9dba5;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:14px}.account-link{font-size:13px;white-space:nowrap}.total-row-controls{background:#edf4fc}
 @media(max-width:650px){.auth-card{padding:25px}.app-header{height:auto;min-height:78px;flex-wrap:wrap;padding:12px 14px}.app-header button{font-size:12px}.app-header h1{font-size:14px}.app-header p{font-size:11px}.app-header .brand-mark{width:32px;height:32px}.app-header .account-link{margin-left:auto}.legacy-banner{margin:12px;align-items:flex-start;flex-direction:column}}
+
+/* Navigation motion stays outside the printable document and its measurements. */
+@keyframes workspace-content-enter{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes workspace-notice-enter{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media screen{
+  .workspace-navigation{position:relative;isolation:isolate}
+  .workspace-active-indicator{position:absolute;left:0;top:0;z-index:-1;pointer-events:none;border-radius:8px;background:#fff;box-shadow:0 3px 10px rgb(24 39 75 / 8%);opacity:0;transition:transform 280ms cubic-bezier(.22,1,.36,1),width 280ms cubic-bezier(.22,1,.36,1),height 200ms ease}
+  .workspace-navigation[data-indicator-ready=true] .workspace-active-indicator{opacity:1}
+  .workspace-navigation[data-indicator-ready=true] .nav-tabs button[data-state=active],.workspace-navigation[data-indicator-ready=true] .nav-history[aria-current=page]{background:transparent;box-shadow:none}
+  .workspace-navigation .nav-tabs button,.workspace-navigation .nav-history{transition:color 160ms ease,background-color 160ms ease}
+  .workspace-navigation svg{transition:transform 180ms cubic-bezier(.22,1,.36,1)}
+  .workspace-navigation button:hover>svg,.workspace-navigation a:hover>svg{transform:translateY(-1px)}
+  .workspace-navigation button:active>svg,.workspace-navigation a:active>svg{transform:translateY(0)}
+  .workspace>[data-slot=tabs-content][data-state=active].manage-panel,.workspace>[data-slot=tabs-content][data-state=active]>.editor,.history-panel,.auth-card{animation:workspace-content-enter 280ms cubic-bezier(.22,1,.36,1)}
+  .toast,.history-notice{animation:workspace-notice-enter 200ms cubic-bezier(.22,1,.36,1)}
+  .history-table-wrap{transition:opacity 160ms ease}
+  .history-advanced[aria-busy=true] .history-table-wrap{opacity:.55}
+  .history-table tbody tr{transition:background-color 140ms ease}
+  .history-view-tabs a,.history-pagination a{transition:background-color 160ms ease,color 160ms ease,border-color 160ms ease}
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-active-indicator,.workspace-navigation .nav-tabs button,.workspace-navigation .nav-history,.workspace-navigation svg,.history-table-wrap,.history-table tbody tr,.history-view-tabs a,.history-pagination a{transition:none!important}
+  .workspace>[data-slot=tabs-content][data-state=active].manage-panel,.workspace>[data-slot=tabs-content][data-state=active]>.editor,.history-panel,.auth-card,.toast,.history-notice{animation:none!important}
+  .workspace-navigation button:hover>svg,.workspace-navigation a:hover>svg{transform:none}
+}

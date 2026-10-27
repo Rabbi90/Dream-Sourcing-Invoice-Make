@@ -180,7 +180,7 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
   {savedDocument&&<div className="workspace-links no-print"><span>Editing a copy saved {formatBangladeshTime(savedDocument.createdAt)}. Generate PDF to save a new version.</span><Link href="/">New document</Link></div>}
   {hasLegacy&&!legacyImported&&<div className="legacy-banner no-print"><span>Previous products and templates were found in this browser.</span><Button variant="outline" onClick={importLegacy} disabled={saving}>Import previous data</Button></div>}
   <Tabs value={activeTab} onValueChange={setActiveTab} className="workspace" inert={generating}>
-   <WorkspaceNavigation/>
+   <WorkspaceNavigation activeTab={activeTab}/>
    <TabsContent value="create" className="create-grid">
     <section className="editor no-print">
      <Section n="01" title="Document setup"/>{restoredTemplate&&<p className="template-help">Using saved layout: {restoredTemplate.name}. Select a template below to replace it.</p>}<div className="template-pills">{templates.map((t,i)=><button key={t.name+i} className={!restoredTemplate&&i===templateIndex?"active":""} onClick={()=>chooseTemplate(i)}>{t.name}</button>)}</div>
