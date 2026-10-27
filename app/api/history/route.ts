@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { MAX_PDF_BYTES } from "@/lib/document-history";
+import { MAX_PDF_BYTES, normalizeHistoryFilters } from "@/lib/document-history";
 import { documentSnapshotSchema } from "@/lib/document-schema";
-import { getHistoryPage, saveHistory } from "@/lib/server/history";
+import { getHistoryPage, saveHistory, setHistoryTrash } from "@/lib/server/history";
 import { authenticated, failed, json, readBody, RequestError } from "@/lib/server/http";
 
 export const runtime = "nodejs";
@@ -14,9 +14,21 @@ const saveSchema = z.object({
 export async function GET(request: Request) {
   try {
     await authenticated();
-    return json(await getHistoryPage(Number(new URL(request.url).searchParams.get("page") || 1)));
+    const query = new URL(request.url).searchParams;
+    return json(await getHistoryPage(Number(query.get("page") || 1), normalizeHistoryFilters(Object.fromEntries(query))));
   } catch (error) { return failed(error); }
 }
+const selectionSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(50).refine(ids => new Set(ids).size === ids.length) }).strict();
+async function changeTrash(request: Request, trash: boolean) {
+  try {
+    await authenticated(request);
+    const parsed = selectionSchema.safeParse(await readBody(request, 4096));
+    if (!parsed.success) throw new RequestError(400, "Select between 1 and 50 documents.");
+    return json(await setHistoryTrash(parsed.data.ids, trash));
+  } catch (error) { return failed(error); }
+}
+export async function DELETE(request: Request) { return changeTrash(request, true); }
+export async function PATCH(request: Request) { return changeTrash(request, false); }
 export async function POST(request: Request) {
   try {
     await authenticated(request);

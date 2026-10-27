@@ -58,7 +58,8 @@ Private catalog data is server-stored. Previously downloaded PDFs, old browser-l
 - Each generation stores the PDF and validated document snapshot as a separate private record. A compare-and-swap index preserves concurrent saves. The history listing excludes PDF payloads and document line items.
 - PDF saves are limited to 3 MB, validate base64 encoding and PDF markers, and use server-generated IDs, filenames, totals and UTC save timestamps. Display uses Asia/Dhaka explicitly.
 - Editing creates a new entry and keeps the original file and snapshot intact. Downloads return private/no-store attachment responses. Session revocation also blocks saved PDF downloads.
-- The production build, lint, 13 unit tests and isolated API/security suite passed. The latter checks private history routes, invalid snapshots/PDFs, exact downloaded bytes, preserved originals, 11 concurrent saves and two-page listings. Browser visual/download automation was unavailable in this session; live Netlify persistence and real SMTP delivery still require deployment checks.
+- The production build, lint, 17 unit tests and isolated API/security suite passed. Coverage includes private history routes, invalid snapshots/PDFs, exact downloaded bytes, preserved originals, concurrent saves and trash operations, pagination, composed filters, Bangladesh day boundaries, and bulk trash/restore CSRF checks. Browser visual/download automation was unavailable in this session; live Netlify persistence and real SMTP delivery still require deployment checks.
+- Delete is reversible: an atomic private-index update marks documents as trashed without removing stored files. PDF downloads and editing check the active index as well as the stored document; trashed IDs return 404. Delete and Restore require the session, exact Origin, CSRF token and a validated selection of up to 50 unique document IDs. Restoration preserves original PDF bytes and creation time.
 
 ## Reference links
 

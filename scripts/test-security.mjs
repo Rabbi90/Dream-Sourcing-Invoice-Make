@@ -109,6 +109,38 @@ try{
  assert.equal((await request('/?history=not-an-id',undefined,{cookie:firstCookie})).status,404);
  console.log('PASS history access control, validation, exact PDF downloads, editable snapshots, preserved originals, concurrent saves and pagination');
 
+ const selection={ids:[original.id,edited.id]};
+ assert.equal((await request('/api/history',selection,{method:'DELETE'})).status,401);
+ assert.equal((await request('/api/history',selection,{method:'DELETE',cookie:firstCookie})).status,403);
+ assert.equal((await request('/api/history',selection,{method:'DELETE',...saveOptions,headers:{Origin:'https://attacker.invalid'}})).status,403);
+ assert.equal((await request('/api/history',{ids:[]},{method:'DELETE',...saveOptions})).status,400);
+ assert.equal((await request('/api/history',{ids:[original.id,original.id]},{method:'DELETE',...saveOptions})).status,400);
+ assert.equal((await request('/api/history',{ids:['not-an-id']},{method:'DELETE',...saveOptions})).status,400);
+ const filtered=await (await request('/api/history?q=HISTORY%2FEDITED&sort=oldest&pageSize=25&docType=both',undefined,{cookie:firstCookie})).json();
+ assert.equal(filtered.total,1);assert.equal(filtered.entries[0].id,edited.id);assert.equal(filtered.pageSize,25);
+ const trashed=await request('/api/history',selection,{method:'DELETE',...saveOptions});assert.equal(trashed.status,200);assert.equal((await trashed.json()).count,2);
+ const activeHistory=await (await request('/api/history',undefined,{cookie:firstCookie})).json();assert.equal(activeHistory.total,11);assert.equal(activeHistory.trashCount,2);
+ const trashHistory=await (await request('/api/history?view=trash',undefined,{cookie:firstCookie})).json();assert.equal(trashHistory.total,2);assert.ok(trashHistory.entries.every(entry=>entry.deletedAt));
+ assert.equal((await request(`/api/history/${original.id}/pdf`,undefined,{cookie:firstCookie})).status,404);
+ assert.equal((await request(`/?history=${original.id}`,undefined,{cookie:firstCookie})).status,404);
+ assert.equal((await request('/history?view=trash&q=HISTORY&sort=oldest',undefined,{cookie:firstCookie})).status,200);
+ assert.equal((await request('/api/history',selection,{method:'PATCH',cookie:firstCookie})).status,403);
+ const restored=await request('/api/history',selection,{method:'PATCH',...saveOptions});assert.equal(restored.status,200);
+ const restoredDownload=await request(`/api/history/${original.id}/pdf`,undefined,{cookie:firstCookie});assert.equal(restoredDownload.status,200);assert.equal(Buffer.from(await restoredDownload.arrayBuffer()).toString('base64'),pdfBase64);
+ assert.equal((await (await request('/api/history?view=trash',undefined,{cookie:firstCookie})).json()).total,0);
+ assert.equal((await (await request('/api/history',undefined,{cookie:firstCookie})).json()).total,13);
+ const historyIndexFile=fileFor('history/index');
+ const datedIndex=JSON.parse(await readFile(historyIndexFile,'utf8'));
+ const originalIndex=structuredClone(datedIndex);
+ datedIndex.value=datedIndex.value.map(entry=>({...entry,createdAt:entry.id===original.id?'2026-10-26T18:00:00.000Z':entry.id===edited.id?'2026-10-27T17:59:59.999Z':'2026-10-27T18:00:00.000Z'}));
+ await writeFile(historyIndexFile,JSON.stringify(datedIndex));
+ const dateFiltered=await (await request('/api/history?from=2026-10-27&to=2026-10-27&sort=oldest',undefined,{cookie:firstCookie})).json();assert.equal(dateFiltered.total,2);assert.deepEqual(dateFiltered.entries.map(entry=>entry.id),[original.id,edited.id]);
+ await writeFile(historyIndexFile,JSON.stringify(originalIndex));
+ const trashAndSave=await Promise.all([request('/api/history',{ids:[original.id]},{method:'DELETE',...saveOptions}),request('/api/history',historyBody,saveOptions)]);assert.deepEqual(trashAndSave.map(response=>response.status),[200,201]);
+ const concurrentIndex=await (await request('/api/history?pageSize=50',undefined,{cookie:firstCookie})).json();assert.equal(concurrentIndex.total,13);assert.equal(concurrentIndex.trashCount,1);
+ assert.equal((await request('/api/history',{ids:[original.id]},{method:'PATCH',...saveOptions})).status,200);
+ console.log('PASS search/type/date/sort filters, Bangladesh day boundaries, bulk trash/restore, CSRF, inaccessible trashed PDFs and concurrent index changes');
+
  const unknown=await request('/api/auth/forgot-password',{email:'unknown@example.com'});assert.equal(unknown.status,200);const before=await inboxMessages();
  const known=await request('/api/auth/forgot-password',{email});assert.equal(known.status,200);assert.deepEqual(await unknown.json(),await known.json());
  const mail=await waitMail(before);assert.equal(mail.to,email);
