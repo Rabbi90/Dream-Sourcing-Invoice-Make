@@ -5,6 +5,8 @@
 [build.environment]
   NODE_VERSION = "22"
   NPM_FLAGS = "--legacy-peer-deps"
+  # Storage provider name is public configuration, not a credential.
+  SECRETS_SCAN_OMIT_KEYS = "AUTH_STORAGE"
 
 [[headers]]
   for = "/*"

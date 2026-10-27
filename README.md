@@ -19,6 +19,8 @@ The password-reset flow is implemented, but actual email delivery requires the S
 
 ## If the previous deployment shows “This page couldn’t load”
 
+If deployment instead fails at **Scanning for secrets** and names `AUTH_STORAGE`, this is a false positive: its value `netlify` is a public provider name that also occurs in dependencies and documentation. The checked-in `netlify.toml` excludes only `AUTH_STORAGE` using `SECRETS_SCAN_OMIT_KEYS`; credential scanning stays enabled. You can also edit `AUTH_STORAGE` in Netlify and clear **Contains secret values**. Keep `AUTH_INITIAL_PASSWORD_HASH` and SMTP passwords marked secret.
+
 The previous package only read Netlify's `URL` when the `NETLIFY` build flag was present. Netlify Functions provides `URL` at runtime but does not guarantee that build flag. Without an explicit `APP_URL`, the old version could throw before showing the sign-in page. This update removes that incorrect dependency.
 
 1. Replace the previous source with this update and trigger a fresh Netlify build. Keep `npm run build`, publish directory `.next`, and Node 22.
