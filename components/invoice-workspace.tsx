@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiRequest } from "@/lib/client-api";
-import type { Catalog } from "@/lib/catalog-schema";
+import { deliveryAddressSchema, type DeliveryAddress, type Catalog } from "@/lib/catalog-schema";
 import { documentFilename, formatBangladeshTime, MAX_PDF_BYTES, type DocumentSnapshot, type HistorySummary } from "@/lib/document-history";
 import { documentSnapshotSchema } from "@/lib/document-schema";
 import { flushSync } from "react-dom";
@@ -46,6 +46,9 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
   setProductSort(value);
   try{localStorage.setItem(sortStorageKey,value)}catch{/* Browser storage may be disabled. */}
  };
+ const [addresses,setAddresses]=useState<DeliveryAddress[]>(initialCatalog.addresses??[]);
+ const [addressId,setAddressId]=useState("");
+ const [editingProductIndex,setEditingProductIndex]=useState<number|null>(null);
  const [templates,setTemplates]=useState<Template[]>(initialCatalog.templates);
  const [templateIndex,setTemplateIndex]=useState(0);
  const [lines,setLines]=useState<Line[]>(()=>draft?.lines??[line(initialCatalog.products.find(p=>p.id===-2)??initialCatalog.products[0]??defaultProducts[1])]);
@@ -72,9 +75,9 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
   document.addEventListener("visibilitychange",onVisibility);window.addEventListener("pageshow",onPageShow);
   return()=>{window.clearTimeout(timer);window.clearInterval(interval);window.removeEventListener("focus",checkSession);document.removeEventListener("visibilitychange",onVisibility);window.removeEventListener("pageshow",onPageShow)};
  },[sortStorageKey]);
- async function persistCatalog(nextProducts:Product[],nextTemplates:Template[],imported=legacyImported){
-  const result=await apiRequest<Catalog>("/api/catalog",{method:"PUT",csrfToken:session.csrfToken,body:{products:nextProducts,templates:nextTemplates,revision:catalogRevision,legacyImported:imported}});
-  setCatalogRevision(result.revision);setProducts(result.products);setTemplates(result.templates);setLegacyImported(result.legacyImported);
+ async function persistCatalog(nextProducts:Product[],nextTemplates:Template[],imported=legacyImported,nextAddresses=addresses){
+  const result=await apiRequest<Catalog>("/api/catalog",{method:"PUT",csrfToken:session.csrfToken,body:{products:nextProducts,templates:nextTemplates,addresses:nextAddresses,revision:catalogRevision,legacyImported:imported}});
+  setAddresses(result.addresses);setCatalogRevision(result.revision);setProducts(result.products);setTemplates(result.templates);setLegacyImported(result.legacyImported);
  }
  async function importLegacy(){
   setSaving(true);
@@ -108,9 +111,32 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
  const chooseTemplate=(i:number)=>{setRestoredTemplate(null);setTemplateIndex(i);const t=templates[i];if(t.id===-2)setLines(defaultProducts.slice(18,21).map(p=>line(products.find(item=>item.id===p.id)??p)));else if(t.id===-3)setLines([line(products.find(p=>p.id===-22)??defaultProducts[21])])};
  async function saveProduct(){
   if(saving)return;setSaving(true);
-  try{const item={...editingProduct,name:editingProduct.name.trim(),id:editingProduct.id??Date.now()};const updated=products.some(p=>p.id===item.id)?products.map(p=>p.id===item.id?item:p):[...products,item];await persistCatalog(updated,templates);setEditingProduct(blank());setNotice("Product saved.")}
+  try{const item={...editingProduct,name:editingProduct.name.trim(),id:editingProduct.id??Date.now()};const updated=editingProductIndex!==null?products.map((p,i)=>i===editingProductIndex?item:p):[...products,item];await persistCatalog(updated,templates);setEditingProduct(blank());setEditingProductIndex(null);setNotice("Product saved.")}
   catch(error){setNotice(error instanceof Error?error.message:"Product could not be saved.")}
   finally{setSaving(false)}
+ }
+ async function deleteProduct(index:number){
+  if(saving||!window.confirm(`Delete product "${products[index].name}"? Existing document items stay unchanged.`))return;
+  setSaving(true);
+  try{await persistCatalog(products.filter((_,i)=>i!==index),templates);
+   if(editingProductIndex===index){setEditingProductIndex(null);setEditingProduct(blank())}
+   else if(editingProductIndex!==null&&editingProductIndex>index)setEditingProductIndex(editingProductIndex-1);
+   setNotice("Product deleted.");
+  }catch(error){setNotice(error instanceof Error?error.message:"Delete failed.")}finally{setSaving(false)}
+ }
+ async function saveAddress(){
+  if(saving)return;
+  const parsed=deliveryAddressSchema.safeParse({id:addressId||crypto.randomUUID(),company,address,contact});
+  if(!parsed.success){setNotice("Enter a company and address (up to 200 and 2000 characters), and a contact up to 500 characters.");return}
+  setSaving(true);
+  try{const item=parsed.data;await persistCatalog(products,templates,legacyImported,addressId?addresses.map(a=>a.id===addressId?item:a):[...addresses,item]);setAddressId(item.id);setNotice("Delivery address saved.")}
+  catch(error){setNotice(error instanceof Error?error.message:"Address could not be saved.")}finally{setSaving(false)}
+ }
+ async function deleteAddress(){
+  if(saving||!addressId||!window.confirm("Delete this saved delivery address? The current document keeps its address."))return;
+  setSaving(true);
+  try{await persistCatalog(products,templates,legacyImported,addresses.filter(a=>a.id!==addressId));setAddressId("");setNotice("Saved address deleted.")}
+  catch(error){setNotice(error instanceof Error?error.message:"Address could not be deleted.")}finally{setSaving(false)}
  }
  async function deleteTemplate(index:number){
   if(saving)return;
@@ -210,7 +236,10 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
     <section className="editor no-print">
      <Section n="01" title="Document setup"/>{restoredTemplate&&<p className="template-help">Using saved layout: {restoredTemplate.name}. Select a template below to replace it.</p>}<div className="template-pills">{templates.map((t,i)=><button key={t.name+i} className={!restoredTemplate&&i===templateIndex?"active":""} onClick={()=>chooseTemplate(i)}>{t.name}</button>)}</div>
      <div className="field-grid three"><label>Output<select value={docType} onChange={e=>setDocType(e.target.value as typeof docType)}><option value="both">Bill + Challan</option><option value="bill">Bill only</option><option value="challan">Challan only</option></select></label><label>Item page layout<select value={pageMode} onChange={e=>setPageMode(e.target.value as typeof pageMode)}><option value="split">Split across pages</option><option value="single">Fit on one page (compact)</option></select></label><label>Bill No.<Input value={billNo} onChange={e=>setBillNo(e.target.value)}/></label><label>Challan No.<Input value={challanNo} onChange={e=>setChallanNo(e.target.value)}/></label><label>Date<Input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label>PO / Reference<Input value={po} onChange={e=>setPo(e.target.value)} placeholder="Optional"/></label></div>
-     <Section n="02" title="Delivery address"/><div className="field-grid two"><label>Company<Input value={company} onChange={e=>setCompany(e.target.value)}/></label><label>Contact person & phone<Input value={contact} onChange={e=>setContact(e.target.value)}/></label><label className="wide">Address<Textarea value={address} onChange={e=>setAddress(e.target.value)} rows={2}/></label></div>
+     <Section n="02" title="Delivery address"/>
+     <label>Saved delivery addresses<select value={addressId} disabled={saving} onChange={e=>{const id=e.target.value;setAddressId(id);const selected=addresses.find(a=>a.id===id);if(selected){setCompany(selected.company);setAddress(selected.address);setContact(selected.contact)}}}><option value="">Current / unsaved address</option>{addresses.map(a=><option key={a.id} value={a.id}>{a.company} ? {a.address}</option>)}</select></label>
+     <div className="address-actions"><Button variant="outline" disabled={saving} onClick={()=>{setAddressId("");setCompany("");setAddress("");setContact("")}}><Plus/> New address</Button><Button variant="outline" disabled={saving} onClick={saveAddress}><Save/> {addressId?"Save address changes":"Save new address"}</Button>{addressId&&<Button variant="outline" disabled={saving} onClick={deleteAddress}><Trash2/> Delete address</Button>}</div>
+     <p className="template-help">Select an address to edit it below, then save your changes.</p><div className="field-grid two"><label>Company<Input value={company} onChange={e=>setCompany(e.target.value)}/></label><label>Contact person & phone<Input value={contact} onChange={e=>setContact(e.target.value)}/></label><label className="wide">Address<Textarea value={address} onChange={e=>setAddress(e.target.value)} rows={2}/></label></div>
      <div className="section-head"><div><span>03</span><h2>Items</h2></div><select aria-label="Add from database (A–Z)" className="product-picker" defaultValue="" onChange={e=>{if(e.currentTarget.value==="")return;const p=dropdownProducts[Number(e.currentTarget.value)];if(p)setLines(v=>[...v,line(p)]);e.currentTarget.value=""}}><option value="">+ Add from database (A–Z)</option>{dropdownProducts.map((p,i)=><option value={i} key={p.id??i}>{p.name} — Tk {money(p.price)}</option>)}</select></div>
      <div className="line-list">{lines.map((l,i)=><div className="line-card" key={l.rowId}><div className="line-title"><b>Item {i+1}</b><button aria-label="Remove item" onClick={()=>setLines(v=>v.filter(x=>x.rowId!==l.rowId))}><Trash2/></button></div><div className="field-grid two">
       {template.columns.includes("name")&&<Field label="Product" value={l.name} set={v=>setLine(l.rowId,"name",v)}/>}
@@ -222,7 +251,7 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
     </section>
     <section className="preview-shell"><div className="preview-label no-print"><span>Live A4 preview</span><b>{template.name}</b></div>{(docType==="bill"||docType==="both")&&<DocumentPages kind="bill" pageMode={pageMode} template={template} lines={lines} company={company} address={address} contact={contact} po={po} number={billNo} date={date} subtotal={subtotal} vat={vat} total={total}/>} {(docType==="challan"||docType==="both")&&<DocumentPages kind="challan" pageMode={pageMode} template={template} lines={lines} company={company} address={address} contact={contact} po={po} number={challanNo} date={date} subtotal={subtotal} vat={0} total={total}/>}</section>
    </TabsContent>
-   <TabsContent value="products" className="manage-panel no-print"><div className="manage-head"><div><p>Preset data</p><h2>Product & price database</h2></div><span>{products.length} products</span></div><div className="catalog-toolbar"><label>Sort products<select value={productSort} onChange={e=>changeProductSort(e.target.value as ProductSort)}>{productSortOptions.map(sort=><option key={sort} value={sort}>{productSortLabels[sort]}</option>)}</select></label></div><div className="catalog-grid"><div className="catalog-table"><div className="catalog-row catalog-title"><span>Product</span><span>Unit</span><span>Price</span></div>{sortedProducts.map((p,i)=><button className="catalog-row" key={p.name+i} onClick={()=>setEditingProduct({...p})}><span><b>{p.name}</b><small>{p.brand||p.code||p.specification}</small></span><span>{p.unit}</span><span>Tk {money(p.price)}</span></button>)}</div><div className="form-card"><h3>{editingProduct.id?"Edit product":"Add product"}</h3>{(["name","code","brand","specification","unit"] as const).map(k=><label key={k}>{labels[k as ColumnKey]||k}<Input value={editingProduct[k]} onChange={e=>setEditingProduct(v=>({...v,[k]:e.target.value}))}/></label>)}<div className="field-grid two"><Num label="Price" value={editingProduct.price} set={v=>setEditingProduct(x=>({...x,price:v}))}/><Num label="Default qty" value={editingProduct.defaultQty} set={v=>setEditingProduct(x=>({...x,defaultQty:v}))}/></div><Button onClick={saveProduct} disabled={saving}><Save/> Save product</Button></div></div></TabsContent>
+   <TabsContent value="products" className="manage-panel no-print"><div className="manage-head"><div><p>Preset data</p><h2>Product & price database</h2></div><Button variant="outline" onClick={()=>{setEditingProductIndex(null);setEditingProduct(blank())}}><Plus/> New product</Button></div><div className="catalog-toolbar"><label>Sort products<select value={productSort} onChange={e=>changeProductSort(e.target.value as ProductSort)}>{productSortOptions.map(sort=><option key={sort} value={sort}>{productSortLabels[sort]}</option>)}</select></label></div><div className="catalog-grid"><div className="catalog-table"><div className="catalog-row catalog-title"><span>Product</span><span>Unit</span><span>Price</span></div>{sortedProducts.map((p,i)=><div className="catalog-product" key={p.id??i}><button className="catalog-row" aria-label={`Edit ${p.name}`} onClick={()=>{setEditingProductIndex(products.indexOf(p));setEditingProduct({...p})}}><span><b>{p.name}</b><small>{p.brand||p.code||p.specification}</small><small>Edit product</small></span><span>{p.unit}</span><span>Tk {money(p.price)}</span></button><button className="product-delete" aria-label={`Delete ${p.name}`} title="Delete product" disabled={saving} onClick={()=>deleteProduct(products.indexOf(p))}><Trash2/></button></div>)}</div><div className="form-card"><h3>{editingProductIndex!==null?"Edit product":"Add product"}</h3>{(["name","code","brand","specification","unit"] as const).map(k=><label key={k}>{labels[k as ColumnKey]||k}<Input value={editingProduct[k]} onChange={e=>setEditingProduct(v=>({...v,[k]:e.target.value}))}/></label>)}<div className="field-grid two"><Num label="Price" value={editingProduct.price} set={v=>setEditingProduct(x=>({...x,price:v}))}/><Num label="Default qty" value={editingProduct.defaultQty} set={v=>setEditingProduct(x=>({...x,defaultQty:v}))}/></div><Button onClick={saveProduct} disabled={saving}><Save/> Save product</Button></div></div></TabsContent>
    <TabsContent value="templates" className="manage-panel no-print">
     <div className="manage-head"><div><p>Reusable layouts</p><h2>Document templates</h2></div><Button variant="outline" onClick={()=>{setEditingTemplateIndex(null);setCustomTemplate(freshTemplate())}}><Plus/> New template</Button></div>
     <p className="template-help">Select a template to change its name or layout, or create a new one.</p>

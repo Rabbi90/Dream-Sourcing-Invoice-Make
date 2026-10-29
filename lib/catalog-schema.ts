@@ -21,8 +21,14 @@ export const templateSchema = z.object({
   return values.some(v => v === undefined) ? sum < 100 : Math.abs(sum - 100) <= .01;
 }, "Column widths must fit the table.");
 
+export const deliveryAddressSchema = z.object({
+  id: z.string().uuid(), company: z.string().trim().min(1).max(200),
+  address: z.string().trim().min(1).max(2000), contact: z.string().max(500),
+}).strict();
+export type DeliveryAddress = z.infer<typeof deliveryAddressSchema>;
 export const catalogSchema = z.object({
   products: z.array(productSchema).max(2000), templates: z.array(templateSchema).min(1).max(200),
+  addresses: z.array(deliveryAddressSchema).max(500).default([]),
   revision: z.string().uuid(), legacyImported: z.boolean(),
 }).strict();
 export type Catalog = z.infer<typeof catalogSchema>;

@@ -14,7 +14,7 @@ export async function PUT(request: Request) {
   try {
     await authenticated(request);
     const parsed = catalogSchema.safeParse(await readBody(request, 512 * 1024));
-    if (!parsed.success) throw new RequestError(400, "Invalid product or template data. Check names, prices, columns and size settings.");
+    if (!parsed.success) throw new RequestError(400, "Invalid catalog data. Check product names, prices, template settings and delivery addresses.");
     const current = await getCatalog();
     if (parsed.data.revision !== current.value.revision) throw new RequestError(409, "Data changed in another tab. Reload this page before saving.");
     const updated = { ...parsed.data, revision: randomUUID() };
