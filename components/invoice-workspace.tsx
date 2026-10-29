@@ -161,7 +161,17 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
    for(let i=0;i<pages.length;i++){
     const table=pages[i].querySelector("table")!,body=pages[i].querySelector(".document-body")!;
     if(table.getBoundingClientRect().bottom>body.getBoundingClientRect().bottom+1)throw new Error("Page layout changed. Please try again.");
-    const canvas=await html2canvas(pages[i],{scale:3,useCORS:true,backgroundColor:"#ffffff",logging:false});
+    const canvas=await html2canvas(pages[i],{
+     scale:3,useCORS:true,backgroundColor:"#ffffff",logging:false,
+     onclone:(clonedDocument)=>{
+      // html2canvas measures text baselines with an inline 1px image.
+      // Tailwind's block-image reset shifts that measurement downward.
+      // Correct it only in the export clone; the live UI stays unchanged.
+      const baselineStyle=clonedDocument.createElement("style");
+      baselineStyle.textContent="img { display: inline-block; }";
+      clonedDocument.head.appendChild(baselineStyle);
+     },
+    });
     if(i>0)pdf.addPage("a4","portrait");
     pdf.addImage(canvas.toDataURL("image/jpeg",.92),"JPEG",0,0,210,297,undefined,"FAST");
    }
