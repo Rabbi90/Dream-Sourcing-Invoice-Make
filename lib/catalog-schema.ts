@@ -10,6 +10,8 @@ export const templateSchema = z.object({
   id: z.number().int().safe().optional(), name: z.string().trim().min(1).max(100),
   columns: z.array(z.enum(columns)).min(1).max(8).refine(value => new Set(value).size === value.length && value.some(column => column !== "price" && column !== "total")),
   vatRate: z.number().finite().min(0).max(100),
+  showDocumentMeta: z.boolean().optional(), showTotals: z.boolean().optional(),
+  showTerms: z.boolean().optional(), terms: z.string().max(6000).optional(),
   rowHeight: z.number().min(20).max(200).optional(), headerHeight: z.number().min(20).max(200).optional(),
   totalRowHeight: z.number().min(20).max(200).optional(), totalLabel: z.string().trim().min(1).max(40).optional(),
   columnWidths: z.record(z.enum(["serial", ...columns]), z.number().min(2).max(95)).optional(),

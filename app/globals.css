@@ -115,3 +115,30 @@ select,.product-picker{height:38px;border-color:#cfd8e4;border-radius:9px;color:
   .workspace>[data-slot=tabs-content][data-state=active].manage-panel,.workspace>[data-slot=tabs-content][data-state=active]>.editor,.history-panel,.auth-card,.toast,.history-notice{animation:none!important}
   .workspace-navigation button:hover>svg,.workspace-navigation a:hover>svg{transform:none}
 }
+
+/* Optional document sections share the preview and PDF layout. */
+.doc-top.doc-top-no-meta{grid-template-columns:1fr}
+.document-terms{padding-top:8px;font-size:11px;line-height:1.4;color:#111;overflow-wrap:anywhere}
+.document-terms h3{font-size:12px;font-weight:700;margin:0 0 5px}
+.terms-content p{margin:0;min-height:1.4em;white-space:pre-wrap}
+.terms-content strong{font-weight:700}
+.terms-content em{font-style:italic}
+.terms-list-line{display:flex;gap:6px;padding-left:14px}
+.terms-marker{flex-shrink:0}
+.terms-editor{display:grid;gap:10px;min-width:0}
+.terms-toolbar{display:flex;flex-wrap:wrap;gap:5px}
+.terms-toolbar button{font-size:12px;padding:6px 9px}
+.terms-editor textarea{width:100%;border:1px solid #cbdbe7;border-radius:8px;padding:10px;background:white;font-weight:400;resize:vertical}
+.terms-editor>.terms-content{border:1px solid #d8e3ec;background:white;padding:12px;font-size:12px;overflow-wrap:anywhere}
+
+.template-card{position:relative;min-width:0}
+.saved-templates .template-card-select{width:100%;height:100%;padding-right:48px}
+.template-card-select>span{min-width:0;overflow-wrap:anywhere}
+.saved-templates .template-card-delete{position:absolute;top:8px;right:8px;width:32px;height:32px;display:grid;place-items:center;padding:6px;border-radius:8px;color:#a52c3b;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s ease,background .15s ease}
+.saved-templates .template-card-delete svg{width:16px;height:16px;color:inherit}
+.template-card:hover .template-card-delete,.template-card:focus-within .template-card-delete{opacity:1;pointer-events:auto}
+.saved-templates .template-card-delete:hover{background:#fff0f2;border-color:#d98a95}
+.saved-templates .template-card-delete:focus-visible{opacity:1;outline:2px solid #164995;outline-offset:2px}
+.saved-templates .template-card-delete:disabled{cursor:not-allowed;color:#8b96a4}
+@media(hover:none){.saved-templates .template-card-delete{opacity:1;pointer-events:auto}}
+@media(prefers-reduced-motion:reduce){.saved-templates .template-card-delete{transition:none}}

@@ -12,6 +12,10 @@ export type Template = {
   headerHeight?: number;
   totalLabel?: string;
   totalRowHeight?: number;
+  showDocumentMeta?: boolean;
+  showTotals?: boolean;
+  showTerms?: boolean;
+  terms?: string;
 };
 
 export const labels: Record<ColumnKey, string> = {

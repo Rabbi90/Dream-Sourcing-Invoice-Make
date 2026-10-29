@@ -54,3 +54,15 @@ test('catalog sorts numerically by price and naturally by name without changing 
   assert.deepEqual(sortProducts(products,'default'),products);
   assert.deepEqual(products.map(p=>p.price),[100,2,10]);
 });
+
+
+test('final terms and totals move to another page without losing rows', () => {
+  const heights = [80, 80, 80, 80];
+  const pages = paginateRows(heights, 400, 150);
+  assert.deepEqual(pages.flat(), [0, 1, 2, 3]);
+  pages.forEach((rows, index) => {
+    const used = rows.reduce((sum, row) => sum + heights[row], 0);
+    assert.ok(used + (index === pages.length - 1 ? 150 : 0) <= 400);
+  });
+  assert.throws(() => paginateRows(heights, 400, 450));
+});

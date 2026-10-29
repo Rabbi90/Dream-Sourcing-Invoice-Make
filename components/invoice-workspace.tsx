@@ -6,6 +6,7 @@ import type { Catalog } from "@/lib/catalog-schema";
 import { documentFilename, formatBangladeshTime, MAX_PDF_BYTES, type DocumentSnapshot, type HistorySummary } from "@/lib/document-history";
 import { documentSnapshotSchema } from "@/lib/document-schema";
 import { flushSync } from "react-dom";
+import { TermsEditor } from "@/components/terms-editor";
 import { DocumentPages } from "@/components/document-pages";
 import { labels, money, sortProducts, type ColumnKey, type Product, type Line, type Template, type ProductSort, type WidthKey } from "@/lib/invoice-layout";
 import { FileDown, LayoutTemplate, Plus, Save, Trash2 } from "lucide-react";
@@ -111,6 +112,20 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
   catch(error){setNotice(error instanceof Error?error.message:"Product could not be saved.")}
   finally{setSaving(false)}
  }
+ async function deleteTemplate(index:number){
+  if(saving)return;
+  if(templates.length===1){setNotice("Keep at least one template. Create another before deleting this one.");return}
+  if(!window.confirm(`Delete template "${templates[index].name}"? Saved history documents will remain available.`))return;
+  setSaving(true);
+  try{
+   await persistCatalog(products,templates.filter((_,i)=>i!==index));
+   setTemplateIndex(current=>current===index?0:current>index?current-1:current);
+   if(editingTemplateIndex===index){setEditingTemplateIndex(null);setCustomTemplate(freshTemplate())}
+   else if(editingTemplateIndex!==null&&editingTemplateIndex>index)setEditingTemplateIndex(editingTemplateIndex-1);
+   setNotice("Template deleted.");
+  }catch(error){setNotice(error instanceof Error?error.message:"Template could not be deleted.")}
+  finally{setSaving(false)}
+ }
  async function saveTemplate(){
   if(saving)return;
   const name=customTemplate.name.trim();
@@ -160,7 +175,7 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
    const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
    for(let i=0;i<pages.length;i++){
     const table=pages[i].querySelector("table")!,body=pages[i].querySelector(".document-body")!;
-    if(table.getBoundingClientRect().bottom>body.getBoundingClientRect().bottom+1)throw new Error("Page layout changed. Please try again.");
+    if(Math.max(table.getBoundingClientRect().bottom,pages[i].querySelector(".document-terms")?.getBoundingClientRect().bottom??0)>body.getBoundingClientRect().bottom+1)throw new Error("Page layout changed. Please try again.");
     const canvas=await html2canvas(pages[i],{
      scale:3,useCORS:true,backgroundColor:"#ffffff",logging:false,
      onclone:(clonedDocument)=>{
@@ -211,18 +226,26 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
    <TabsContent value="templates" className="manage-panel no-print">
     <div className="manage-head"><div><p>Reusable layouts</p><h2>Document templates</h2></div><Button variant="outline" onClick={()=>{setEditingTemplateIndex(null);setCustomTemplate(freshTemplate())}}><Plus/> New template</Button></div>
     <p className="template-help">Select a template to change its name or layout, or create a new one.</p>
-    <div className="template-manager"><div className="saved-templates">{templates.map((t,i)=><button key={t.id??i} className={editingTemplateIndex===i?"selected":""} onClick={()=>{chooseTemplate(i);setEditingTemplateIndex(i);setCustomTemplate({...t,columns:[...t.columns],columnWidths:{...t.columnWidths}})}}><LayoutTemplate/><span><b>{t.name}</b><small>{t.columns.length} columns · VAT {t.vatRate}%</small><small>Edit name & layout</small></span></button>)}</div>
+    <div className="template-manager"><div className="saved-templates">{templates.map((t,i)=><div className="template-card" key={t.id??i}><button className={`template-card-select ${editingTemplateIndex===i?"selected":""}`} onClick={()=>{chooseTemplate(i);setEditingTemplateIndex(i);setCustomTemplate({...t,columns:[...t.columns],columnWidths:{...t.columnWidths}})}}><LayoutTemplate/><span><b>{t.name}</b><small>{t.columns.length} columns · VAT {t.vatRate}%</small><small>Edit name & layout</small></span></button><button type="button" className="template-card-delete" aria-label={`Delete template ${t.name}`} title={templates.length===1?"Keep at least one template":"Delete template"} disabled={saving||templates.length===1} onClick={()=>deleteTemplate(i)}><Trash2 aria-hidden="true"/></button></div>)}</div>
      <div className="form-card"><h3>{editingTemplateIndex===null?"Create a template":"Edit template"}</h3>
       <Field label="Template name" value={customTemplate.name} set={v=>setCustomTemplate(x=>({...x,name:v}))}/>
       <Num label="VAT rate (%)" value={customTemplate.vatRate} set={v=>setCustomTemplate(x=>({...x,vatRate:v}))}/>
       <div className="column-picker">{allColumns.map(c=><label key={c}><input type="checkbox" checked={customTemplate.columns.includes(c)} onChange={()=>setCustomTemplate(v=>({...v,columns:v.columns.includes(c)?v.columns.filter(x=>x!==c):[...v.columns,c]}))}/><span>{labels[c]}</span></label>)}</div>
+      <div className="column-picker">
+       <label><input type="checkbox" checked={customTemplate.showDocumentMeta!==false} onChange={e=>setCustomTemplate(t=>({...t,showDocumentMeta:e.target.checked}))}/>Bill / challan number and date box</label>
+       <label><input type="checkbox" checked={customTemplate.showTotals!==false} onChange={e=>setCustomTemplate(t=>({...t,showTotals:e.target.checked}))}/>Summary and VAT rows (requires Total Value)</label>
+       <label><input type="checkbox" checked={!!customTemplate.showTerms} onChange={e=>setCustomTemplate(t=>({...t,showTerms:e.target.checked}))}/>Terms and conditions</label>
+      </div>
+      {customTemplate.showTerms&&<TermsEditor value={customTemplate.terms??""} onChange={terms=>setCustomTemplate(t=>({...t,terms}))}/>}
+      <p className="template-help">Unchecked fields are hidden in preview and PDF after saving the template.</p>
       <fieldset className="dimension-controls"><legend>Row & column sizes (optional)</legend><p>Leave blank to keep the current sizes. Rows expand when text needs more space.</p>
        <div className="field-grid two"><SizeInput label="Minimum row height (px)" value={customTemplate.rowHeight} min={20} max={200} set={value=>setCustomTemplate(t=>({...t,rowHeight:value}))}/><SizeInput label="Minimum header height (px)" value={customTemplate.headerHeight} min={20} max={200} set={value=>setCustomTemplate(t=>({...t,headerHeight:value}))}/></div>
        <p>Column widths use a percentage of the table. Auto columns share the remaining space. The table always stays inside the page.</p>
        <div className="field-grid two">{(["serial",...customTemplate.columns] as WidthKey[]).map(key=><SizeInput key={key} label={`${key==="serial"?"SL. No":labels[key]} width (%)`} value={customTemplate.columnWidths?.[key]} min={2} max={95} set={value=>setCustomTemplate(t=>({...t,columnWidths:{...t.columnWidths,[key]:value}}))}/>)}</div>
        <Button variant="outline" onClick={()=>setCustomTemplate(t=>({...t,rowHeight:undefined,headerHeight:undefined,totalRowHeight:undefined,columnWidths:undefined}))}>Reset sizes to original</Button>
       </fieldset>
-      <fieldset className="dimension-controls total-row-controls"><legend>TOTAL row</legend><p>Included on the final page of every bill. The amount includes VAT when applicable.</p><Field label="TOTAL row label" value={customTemplate.totalLabel??"TOTAL"} set={value=>setCustomTemplate(t=>({...t,totalLabel:value}))}/><SizeInput label="Minimum TOTAL row height (px)" value={customTemplate.totalRowHeight} min={20} max={200} set={value=>setCustomTemplate(t=>({...t,totalRowHeight:value}))}/></fieldset>
+      <fieldset className="dimension-controls total-row-controls"><legend>TOTAL row</legend><p>Shown on the final bill page when Total Value and summary rows are enabled. The amount includes VAT when applicable.</p><Field label="TOTAL row label" value={customTemplate.totalLabel??"TOTAL"} set={value=>setCustomTemplate(t=>({...t,totalLabel:value}))}/><SizeInput label="Minimum TOTAL row height (px)" value={customTemplate.totalRowHeight} min={20} max={200} set={value=>setCustomTemplate(t=>({...t,totalRowHeight:value}))}/></fieldset>
+      {editingTemplateIndex!==null&&templates.length===1&&<p className="template-help">Create another template before deleting the last one.</p>}
       <Button onClick={saveTemplate} disabled={saving}><Save/> {editingTemplateIndex===null?"Save template":"Save changes"}</Button>
      </div>
     </div>

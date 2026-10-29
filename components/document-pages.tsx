@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { TermsContent } from "@/components/terms-editor";
 import { labels, money, paginateRows, type Line, type Template, type WidthKey } from "@/lib/invoice-layout";
 
 type DocumentProps = {
@@ -58,13 +59,13 @@ export function DocumentPages(props: DocumentProps) {
         for (const candidate of [1, .95, .9, .85, .8, .75, .7, .65]) {
           paper.style.setProperty("--compact-scale", String(candidate));
           const rowsHeight = Array.from(table.tBodies[0].rows).reduce((sum, row) => sum + row.getBoundingClientRect().height, 0);
-          const totalHeight = table.tFoot?.getBoundingClientRect().height || 0;
+          const totalHeight = (table.tFoot?.getBoundingClientRect().height || 0) + (paper.querySelector(".document-terms")?.getBoundingClientRect().height || 0);
           scale = candidate;
           if (rowsHeight + totalHeight <= capacity && Array.from(table.querySelectorAll("th,td")).every(cell => cell.scrollWidth <= cell.clientWidth + 2)) break;
         }
       } else paper.style.removeProperty("--compact-scale");
       const heights = Array.from(table.tBodies[0].rows, row => row.getBoundingClientRect().height);
-      const totalsHeight = table.tFoot?.getBoundingClientRect().height || 0;
+      const totalsHeight = (table.tFoot?.getBoundingClientRect().height || 0) + (paper.querySelector(".document-terms")?.getBoundingClientRect().height || 0);
       try {
         const pages = paginateRows(heights, capacity, totalsHeight);
         if (props.pageMode === "single" && (pages.length !== 1 || Array.from(table.querySelectorAll("th,td")).some(cell => cell.scrollWidth > cell.clientWidth + 2)))
@@ -103,9 +104,9 @@ function PageContent(p: DocumentProps & { rows: number[]; widths?: number[]; fin
   const columns = visibleColumns(p);
   return <div className="paper-content">
     <div className="document-body">
-      <div className="doc-top">
+      <div className={`doc-top ${p.template.showDocumentMeta === false ? "doc-top-no-meta" : ""}`}>
         <div className="address-block"><b>{isBill ? "BILL TO," : "Delivery Address:"}</b><strong>{p.company}</strong><span>{p.address}</span><span>{p.contact}</span>{p.po && <span>PO: {p.po}</span>}</div>
-        <div className="doc-meta"><u>{isBill ? "BILL" : "DELIVERY CHALLAN"}</u><div><span>{isBill ? "BILL NO" : "CHALLAN"}</span><span>DATE</span><b>{p.number}</b><b>{p.date.split("-").reverse().join("/")}</b></div></div>
+        {p.template.showDocumentMeta !== false && <div className="doc-meta"><u>{isBill ? "BILL" : "DELIVERY CHALLAN"}</u><div><span>{isBill ? "BILL NO" : "CHALLAN"}</span><span>DATE</span><b>{p.number}</b><b>{p.date.split("-").reverse().join("/")}</b></div></div>}
       </div>
       <table style={p.widths ? { tableLayout: "fixed" } : undefined}>
         <colgroup>{["serial", ...columns].map((key, index) => <col key={key} style={p.widths ? { width: `${p.widths[index]}%` } : undefined} />)}</colgroup>
@@ -116,8 +117,9 @@ function PageContent(p: DocumentProps & { rows: number[]; widths?: number[]; fin
             <td>{index + 1}</td>{columns.map(column => <td key={column} className={["qty", "price", "total"].includes(column) ? "number" : ""}>{column === "qty" ? item.qty : column === "price" ? money(item.price) : column === "total" ? money(item.qty * item.price) : String(item[column])}</td>)}
           </tr>;
         })}</tbody>
-        {isBill && p.finalPage && <tfoot>{p.template.vatRate > 0 && <><tr><td colSpan={columns.length}>SUB TOTAL</td><td>{money(p.subtotal)}</td></tr><tr><td colSpan={columns.length}>VAT {p.template.vatRate}%</td><td>{money(p.vat)}</td></tr></>}<tr className="grand-total-row" style={p.template.totalRowHeight ? { height: p.template.totalRowHeight } : undefined}><td colSpan={columns.length}>{p.template.totalLabel?.trim() || "TOTAL"}</td><td>{money(p.total)}</td></tr></tfoot>}
+        {isBill && p.finalPage && p.template.showTotals !== false && columns.includes("total") && <tfoot>{p.template.vatRate > 0 && <><tr><td colSpan={columns.length}>SUB TOTAL</td><td>{money(p.subtotal)}</td></tr><tr><td colSpan={columns.length}>VAT {p.template.vatRate}%</td><td>{money(p.vat)}</td></tr></>}<tr className="grand-total-row" style={p.template.totalRowHeight ? { height: p.template.totalRowHeight } : undefined}><td colSpan={columns.length}>{p.template.totalLabel?.trim() || "TOTAL"}</td><td>{money(p.total)}</td></tr></tfoot>}
       </table>
+      {p.finalPage && p.template.showTerms && p.template.terms?.trim() && <section className="document-terms"><h3>CONDITION:</h3><TermsContent value={p.template.terms} /></section>}
     </div>
     <div className="signatures"><span>Receiver’s Signature</span><span>Authorized Signature</span></div>
   </div>;
