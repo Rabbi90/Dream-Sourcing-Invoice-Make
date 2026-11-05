@@ -50,9 +50,9 @@ export function DocumentPages(props: DocumentProps) {
       });
       table.style.tableLayout = "fixed";
       cols.forEach((col, index) => { col.style.width = `${widths[index]}%`; });
-      // Reserve a small rounding allowance at the bottom in addition to the
-      // separate 40px signature gap laid out by CSS.
-      const capacity = body.getBoundingClientRect().bottom - table.getBoundingClientRect().top - table.tHead!.getBoundingClientRect().height - 3;
+      // Reserve enough rounding allowance for fonts and image-backed signature
+      // art to settle identically between measurement and export pages.
+      const capacity = body.getBoundingClientRect().bottom - table.getBoundingClientRect().top - table.tHead!.getBoundingClientRect().height - 10;
       let scale = 1;
       if (props.pageMode === "single") {
         // Measure the actual wrapped text at every size. Never clip rows to force a page.
@@ -102,7 +102,9 @@ function visibleColumns(p: DocumentProps) {
 function PageContent(p: DocumentProps & { rows: number[]; widths?: number[]; finalPage: boolean }) {
   const isBill = p.kind === "bill";
   const columns = visibleColumns(p);
-  return <div className="paper-content">
+  const showStamp = p.finalPage && !!p.template.showCompanyStamp;
+  const showSignature = p.finalPage && !!p.template.showAuthorizedSignature;
+  return <div className={`paper-content ${showStamp || showSignature ? "has-authorized-art" : ""}`}>
     <div className="document-body">
       <div className={`doc-top ${p.template.showDocumentMeta === false ? "doc-top-no-meta" : ""}`}>
         <div className="address-block"><b>{isBill ? "BILL TO," : "Delivery Address:"}</b><strong>{p.company}</strong><span>{p.address}</span><span>{p.contact}</span>{p.po && <span>PO: {p.po}</span>}</div>
@@ -121,6 +123,6 @@ function PageContent(p: DocumentProps & { rows: number[]; widths?: number[]; fin
       </table>
       {p.finalPage && p.template.showTerms && p.template.terms?.trim() && <section className="document-terms"><h3>CONDITION:</h3><TermsContent value={p.template.terms} /></section>}
     </div>
-    <div className="signatures"><span>Receiver’s Signature</span><span>Authorized Signature</span></div>
+    <div className="signatures"><div className="signature-slot"><span>Receiver’s Signature</span></div><div className="signature-slot authorized-signature-slot">{(showStamp||showSignature)&&<div className="signature-artwork" aria-hidden="true">{showStamp&&<Image className="company-stamp" src="/dream-sourcing-stamp-transparent.png" alt="" width={122} height={105} unoptimized/>}{showSignature&&<Image className="handwritten-signature" src="/authorized-signature-transparent.png" alt="" width={300} height={80} unoptimized/>}</div>}<span>Authorized Signature</span></div></div>
   </div>;
 }

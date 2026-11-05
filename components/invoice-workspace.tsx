@@ -105,7 +105,9 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
  }
  async function logout(){try{await apiRequest("/api/auth/logout",{method:"POST",body:{},csrfToken:session.csrfToken});window.location.replace("/login")}catch(error){setNotice(error instanceof Error?error.message:"Sign out failed.")}}
 
- const template=restoredTemplate??templates[templateIndex]??templates[0];
+ // Keep the selected template draft live so checkbox changes are reflected in
+ // preview and PDF immediately, even before the catalog save completes.
+ const template=restoredTemplate??(editingTemplateIndex===templateIndex?customTemplate:templates[templateIndex])??templates[0];
  const subtotal=useMemo(()=>lines.reduce((s,l)=>s+(+l.qty||0)*(+l.price||0),0),[lines]),vat=subtotal*template.vatRate/100,total=subtotal+vat;
  const setLine=(id:string,key:keyof Line,value:string|number)=>setLines(v=>v.map(l=>l.rowId===id?{...l,[key]:value}:l));
  const chooseTemplate=(i:number)=>{setRestoredTemplate(null);setTemplateIndex(i);const t=templates[i];if(t.id===-2)setLines(defaultProducts.slice(18,21).map(p=>line(products.find(item=>item.id===p.id)??p)));else if(t.id===-3)setLines([line(products.find(p=>p.id===-22)??defaultProducts[21])])};
@@ -201,7 +203,7 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
    const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
    for(let i=0;i<pages.length;i++){
     const table=pages[i].querySelector("table")!,body=pages[i].querySelector(".document-body")!;
-    if(Math.max(table.getBoundingClientRect().bottom,pages[i].querySelector(".document-terms")?.getBoundingClientRect().bottom??0)>body.getBoundingClientRect().bottom+1)throw new Error("Page layout changed. Please try again.");
+    if(Math.max(table.getBoundingClientRect().bottom,pages[i].querySelector(".document-terms")?.getBoundingClientRect().bottom??0)>body.getBoundingClientRect().bottom+3)throw new Error("Page layout changed. Please try again.");
     const canvas=await html2canvas(pages[i],{
      scale:3,useCORS:true,backgroundColor:"#ffffff",logging:false,
      onclone:(clonedDocument)=>{
@@ -268,8 +270,9 @@ export default function Home({initialCatalog,presetProducts:defaultProducts,init
        <label><input type="checkbox" checked={customTemplate.showTotals!==false} onChange={e=>setCustomTemplate(t=>({...t,showTotals:e.target.checked}))}/>Summary and VAT rows (requires Total Value)</label>
        <label><input type="checkbox" checked={!!customTemplate.showTerms} onChange={e=>setCustomTemplate(t=>({...t,showTerms:e.target.checked}))}/>Terms and conditions</label>
       </div>
+      <fieldset className="dimension-controls signature-controls"><legend>Authorized signature</legend><p>Choose which marks appear above the authorized-signature line on the final page.</p><div className="column-picker"><label><input type="checkbox" checked={!!customTemplate.showCompanyStamp} onChange={e=>setCustomTemplate(t=>({...t,showCompanyStamp:e.target.checked}))}/><span><b>Company stamp</b><small>Dream Sourcing seal</small></span></label><label><input type="checkbox" checked={!!customTemplate.showAuthorizedSignature} onChange={e=>setCustomTemplate(t=>({...t,showAuthorizedSignature:e.target.checked}))}/><span><b>Handwritten signature</b><small>Authorized signature image</small></span></label></div></fieldset>
       {customTemplate.showTerms&&<TermsEditor value={customTemplate.terms??""} onChange={terms=>setCustomTemplate(t=>({...t,terms}))}/>}
-      <p className="template-help">Unchecked fields are hidden in preview and PDF after saving the template.</p>
+      <p className="template-help">Changes appear immediately in preview and PDF. Save changes to keep them for future documents.</p>
       <fieldset className="dimension-controls"><legend>Row & column sizes (optional)</legend><p>Leave blank to keep the current sizes. Rows expand when text needs more space.</p>
        <div className="field-grid two"><SizeInput label="Minimum row height (px)" value={customTemplate.rowHeight} min={20} max={200} set={value=>setCustomTemplate(t=>({...t,rowHeight:value}))}/><SizeInput label="Minimum header height (px)" value={customTemplate.headerHeight} min={20} max={200} set={value=>setCustomTemplate(t=>({...t,headerHeight:value}))}/></div>
        <p>Column widths use a percentage of the table. Auto columns share the remaining space. The table always stays inside the page.</p>

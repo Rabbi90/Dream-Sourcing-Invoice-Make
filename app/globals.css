@@ -171,3 +171,17 @@ select,.product-picker{height:38px;border-color:#cfd8e4;border-radius:9px;color:
 .address-help{margin:9px 0 0;color:#647087;font-size:12px;line-height:1.45}
 @media(hover:none){.saved-templates>.template-card>button.template-card-delete{opacity:1;pointer-events:auto}}
 @media(max-width:650px){.address-actions button{flex:1}.address-actions .address-delete{margin-left:0;flex:0 0 100%}}
+
+/* Optional authorized marks are part of the printable template. */
+.signature-controls .column-picker{margin-top:2px}
+.signature-controls .column-picker label{align-items:flex-start}
+.signature-controls .column-picker span{display:grid;gap:2px}
+.signature-controls .column-picker b{color:#25344b;font-size:12px}
+.signature-controls .column-picker small{color:#748197;font-size:11px;font-weight:400;line-height:1.35}
+.signature-slot{position:relative;width:155px;text-align:center}
+.signature-slot>span{display:block;width:100%;border-top:1px solid #111;padding-top:7px}
+.signature-artwork{position:absolute;isolation:isolate;inset:auto 0 25px 0;height:78px;pointer-events:none}
+.signature-artwork img{position:absolute;display:block;object-fit:contain}
+.signature-artwork .company-stamp{right:0;bottom:0;width:82px;height:70px;z-index:1}
+.signature-artwork .handwritten-signature{right:20px;bottom:16px;width:130px;height:46px;z-index:2}
+.paper-content.has-authorized-art .document-body{margin-bottom:98px}

@@ -70,7 +70,7 @@ try{
  assert.equal((await request('/api/catalog',catalog,{method:'PUT',cookie:firstCookie})).status,403);
  assert.equal((await request('/api/catalog',catalog,{method:'PUT',cookie:firstCookie,csrf:firstSession.csrfToken,headers:{Origin:'https://attacker.invalid'}})).status,403);
  assert.equal((await request('/api/catalog',{...catalog,administrator:true},{method:'PUT',cookie:firstCookie,csrf:firstSession.csrfToken})).status,400);
- const updated={...catalog,templates:catalog.templates.map((t,i)=>i? t:{...t,totalLabel:'TOTAL PAYABLE',totalRowHeight:55,showDocumentMeta:false,showTotals:false,showTerms:true,terms:'- **Payment term:** CREDIT TERM 1 MONTH.'})};
+ const updated={...catalog,templates:catalog.templates.map((t,i)=>i? t:{...t,totalLabel:'TOTAL PAYABLE',totalRowHeight:55,showDocumentMeta:false,showTotals:false,showTerms:true,terms:'- **Payment term:** CREDIT TERM 1 MONTH.',showCompanyStamp:true,showAuthorizedSignature:true})};
  const saved=await request('/api/catalog',updated,{method:'PUT',cookie:firstCookie,csrf:firstSession.csrfToken});assert.equal(saved.status,200);
  assert.equal((await request('/api/catalog',updated,{method:'PUT',cookie:firstCookie,csrf:firstSession.csrfToken})).status,409);
  const savedCatalog=await (await request('/api/catalog',undefined,{cookie:firstCookie})).json();
@@ -79,6 +79,8 @@ try{
  assert.equal(savedCatalog.templates[0].showTotals,false);
  assert.equal(savedCatalog.templates[0].showTerms,true);
  assert.equal(savedCatalog.templates[0].terms,'- **Payment term:** CREDIT TERM 1 MONTH.');
+ assert.equal(savedCatalog.templates[0].showCompanyStamp,true);
+ assert.equal(savedCatalog.templates[0].showAuthorizedSignature,true);
  const addressFixture={id:randomUUID(),company:'Saved Customer',address:'Dhaka, Bangladesh',contact:'Contact person'};
  const addressSave=await request('/api/catalog',{...savedCatalog,addresses:[addressFixture]},{method:'PUT',cookie:firstCookie,csrf:firstSession.csrfToken});
  assert.equal(addressSave.status,200);

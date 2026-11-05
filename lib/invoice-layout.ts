@@ -16,6 +16,8 @@ export type Template = {
   showTotals?: boolean;
   showTerms?: boolean;
   terms?: string;
+  showCompanyStamp?: boolean;
+  showAuthorizedSignature?: boolean;
 };
 
 export const labels: Record<ColumnKey, string> = {
